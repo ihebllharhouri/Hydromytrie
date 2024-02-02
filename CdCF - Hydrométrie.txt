@@ -1,0 +1,44 @@
+Cahier des charges fonctionnel
+Sujet D - Hydrométrie
+
+Fonctionnalité 1
+
+Permettre la visualisation de données sur les débits d'eau en Bretagne grâce à une carte interactive
+
+    Sous fonctionnalité 1.1 :
+
+    Avoir une carte interactive
+
+    Besoin 1.1.1 : Placer tout les POI sur la carte avec leurs coordonnées GPS
+    Besoin 1.1.2 : Relier les POI à leurs informations et données sur leurs débits situés dans deux bases de données
+    Besoin 1.1.3 : Programme python qui affiche un pop-up avec les informations d'un lieu quand on clique sur le lieu.
+    
+    Sous fonctionnalité 1.2 : 
+
+    Afficher les données sous forme de graphique après un clic sur un des lieux proposés par la carte.
+    
+    Besoin 1.2.1 : Programme python faisant le lien entre l'appui d'un certain lieu avec ses informations
+    et données sur ses débits contenues dans 2 bases de données distinctes
+    Besoin 1.2.2 : Bases de données lisibles par le programme
+    Besoin 1.2.4 : Programme python qui prend en entrée une date de fin et de début, un lieu et renvoie un graphique des débits dans une nouvelle page
+    Besoin 1.2.3 : Page html qui affiche le graphique
+
+    Sous fonctionnalité 1.3 :
+
+    Afficher un tableau avec le graphique si voulu
+
+    Besoin 1.3.1 : Avoir un bouton plus sur la page avec le graphique qui permet de montrer le tableau des débits
+
+Fonctionnalité 2 
+
+Permettre la comparaison de données entre différents lieux
+
+    Sous fonctionnalité 2.1 :
+    
+    Afficher deux graphiques légendés surperposés 
+
+    Besoin 2.1.1 : avoir un bouton comparer dans le pop up descriptif d'un lieu
+    Besoin 2.1.2 : modifier le programme python qui affiche le graphique pour qu'il puisse faire la comparaison entre graphiques
+    
+
+
