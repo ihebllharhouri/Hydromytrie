@@ -1,0 +1,225 @@
+<!DOCTYPE html>  
+
+<script src="leaflet.js"> // Bibliothèque Leaflet : http://leafletjs.com/ </script>
+<script src="jquery-3.6.3.min.js"></script>
+
+<title>Carte glissante</title>
+<link rel="stylesheet" type="text/css" href="leaflet.css" /> 
+<link rel="stylesheet" type="text/css" href="style.css"/>
+
+<meta charset="utf-8">
+  
+<!-- Récupération de la liste des lieux insolites au chargement de la page -->
+<body onload="load_data();">
+
+  <h1>Carte de Bretagne</h1>
+  <div>
+
+  <!-- Zone pour l'insertion de la carte OSM via Leaflet -->
+  <div id="map" style="min-height: 500px; height: 100%; width: 100%"></div>  
+
+  <!-- Zone pour l'affichage dynamique des descriptions -->
+  <p id="description"></p>
+
+  </div>
+ </body>
+
+
+<script>
+// compare : booléen qui vaut true dès qu'on clique sur comparer les courbes puis vaut false à nouveau quand on clique sur le site avec lequel on veut comparer les données, permet de savoir si on est en train de comparer ou non
+var compare=false;
+// poi_compared : dictionnaire qui enregistre les données utiles du premier site dont on veut comparer les données
+var poi_compared = new Map();
+
+// locked : booléen qui permet d'empêcher l'utilisateur de spammer les boutons
+var locked=false;
+
+// Création d'une carte dans la balise div "map",
+// et position de la vue sur un point donné et un niveau de zoom
+var map = L.map('map').setView([48.186078, -2.968817], 8);
+
+// Ajout d'une couche de dalles OpenStreetMap
+// Modification de la couche pour afficher une carte sattelite de la France, provient du site https://leaflet-extras.github.io/leaflet-providers/preview/
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+  maxZoom: 19
+}).addTo(map);
+
+// Fonction appelée au chargement de la page
+function load_data () {
+
+  // objet pour l'envoi d'une requête Ajax
+  var xhr = new XMLHttpRequest();
+
+  // fonction appelée lorsque la réponse à la requête (liste des lieux insolites) sera arrivée
+  xhr.onload = function() {
+
+    // transformation des données renvoyées par le serveur
+    // responseText est du type string, data est une liste
+    var data = JSON.parse(this.responseText);
+
+    // boucle sur les lieux
+    for ( n = 0; n < data.length; n++ ) {
+      // insertion d'un marqueur à la position du lieu,
+      // attachement d'une popup, capture de l'événement 'clic'
+      // ajout d'une propriété personnalisée au marqueur
+      L.marker([data[n].lat,data[n].lon]).addTo(map)
+      // Ajout dans le popup du bouton 'Graphique des débits' permet lors du clic d'afficher la sélection des dates
+       .bindPopup(`<div>
+        <p id = 'name'>${data[n].name}<br/></p><button class='button-12' id="bouton_graphique" id_data='${data[n].oldid}' onclick='Affiche_date(this,$(this).attr("id_data"))'> Graphique des débits</button><div id='dates' hidden></div></div>`)
+       .addEventListener('click',OnMarkerClick)
+       .idnum = data[n].id;
+    };
+  };
+  //fonction qui affiche le graphique des données
+
+  // Envoi de la requête Ajax pour la récupération de la liste des lieux insolites
+  xhr.open('GET','/location',true);
+  xhr.send();
+};
+
+function Affiche_date (e,id_data) {
+  // affC : html des input pour sélectionner les dates et afficher les boutons pour la courbe et la comparaison
+  let affC = `<br/><label>Date de début : <input type="date" id="dd" min="2018-01-01" max="2018-12-31"></label>
+        <label>Date de fin : <input type="date" id="df" min="2018-01-01" max="2018-12-31"></label><button style='width:50%; float:left;' class='button-12' id='affC' id_data='${id_data}' onclick='Affiche_courbe(this,$(this).attr("id_data"))'>Afficher la courbe</button><button style='margin-left:50%' class='button-12' id_data='${id_data}' id='compC' onclick='Compare_courbe(this,$(this).attr("id_data"))'>Comparer les courbes</button>`
+  // noData : html qui s'affiche s'il n'y a pas de données pour le site
+  let noData = '<br/><p id="noData">Pas de données pour ce site</p>'
+  // Les tests suivants permettent de choisir entre mettre affC ou noData dans le html du popup
+  if (id_data == 'null') {
+    if (e.parentNode.querySelector('#dates #noData') == null) {
+      $(e.parentNode.querySelector('#dates')).append(noData)
+    }
+  } else if (e.parentNode.querySelector('#dates #affC') == null) {
+    $(e.parentNode.querySelector('#dates')).append(affC)
+  }
+
+  e.parentNode.querySelector('#dates').hidden = !e.parentNode.querySelector('#dates').hidden
+};
+
+// Fonction de comparaison des courbes
+function Compare_courbe(e,id_data) {
+  // Met la page web en 'mode comparaison', le prochain site sélectionné sera celui avec lequel on comparera la courbe du premier site
+  compare = true;
+
+  // On recupère la date de début et de fin du plot à partir de l'objet sur lequel on a cliqué
+  var dd = e.parentNode.querySelector('#dd').value
+  var df = e.parentNode.querySelector('#df').value
+  // Si l'utilisateur n'a pas entré de dates, on met dd et df aux valeurs par défaut
+  if (dd=='') {
+    dd = $(e.parentNode.querySelector('#dd')).attr('min')
+  }
+  if (df=='') {
+    df = $(e.parentNode.querySelector('#dd')).attr('max')
+  }
+  // Si l'utilisateur a entré des dates absurdes, on lui signale qu'il doit changer les dates
+  if ((dd > df || (dd<'2018-01-01' || dd>'2018-12-31') || (df<'2018-01-01' || df>'2018-12-31')) && e.parentNode.querySelector('p')==null) {
+    $(e.parentNode).append('<p style="color:red;">Veuillez choisir des dates valides<br/>Du 01/01/2018 au 31/12/2018</p>')
+  } else if (dd > df || (dd<'2018-01-01' || dd>'2018-12-31') || (df<'2018-01-01' || df>'2018-12-31')) {
+
+  } else {
+    // Si tout va bien, on enregistre dans le dictionnaire poi_compared les données de ce premier site
+    map.closePopup()
+    poi_compared.set("poi",e)
+    poi_compared.set("poi_id",id_data)
+    poi_compared.set("name",e.parentNode.parentNode.querySelector('#name').innerHTML.slice(0,-4))
+    poi_compared.set("dd",dd)
+    poi_compared.set("df",df)
+  }
+}
+
+// Fonction qui affiche les courbes
+function Affiche_courbe(e,id_data) {
+  // Même logique que dans la fonction 'Compare_courbe'
+  var dd = e.parentNode.querySelector('#dd').value
+  var df = e.parentNode.querySelector('#df').value
+  if (dd=='') {
+    dd = $(e.parentNode.querySelector('#dd')).attr('min')
+  }
+  if (df=='') {
+    df = $(e.parentNode.querySelector('#dd')).attr('max')
+  }
+  if ((dd > df || (dd<'2018-01-01' || dd>'2018-12-31') || (df<'2018-01-01' || df>'2018-12-31')) && e.parentNode.querySelector('p')==null) {
+    $(e.parentNode).append('<p style="color:red;">Veuillez choisir des dates valides<br/>Du 01/01/2018 au 31/12/2018</p>')
+  } else if (dd > df) {
+
+  } else if (!locked) {
+  // C'est ici qu'intervient le booléen locked, s'il est sur false on peut continuer, sinon c'est qu'on a déjà cliqué sur le bouton dans la dernière seconde
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+    var data = JSON.parse(this.responseText);
+    // On ouvre dans la fonction callback une nouvelle page en lui faisant passer dans l'url les paramètres pour afficher la bonne courbe
+    // src : chemin d'accès à l'image du plot dans le dossier du serveur
+    // lieu : nom du lieu
+    window.open("courbes.html?id=cb"+"&src="+data.src+'&lieu='+data.lieu)
+  };
+  
+  // Requête AJAX pour envoyer au serveur les données nécessaires au plot de la courbe du site
+  xhr.open('GET','/courbe/'+id_data+'/'+dd+'/'+df,true);
+  xhr.send();
+  // On passe locked à true car on vient de cliquer sur le bouton puis on attend 1s
+  locked=true
+  setTimeout(unlock,1000)
+  };
+};
+
+function unlock() {
+  // Après une seconde, on peut cliquer sur le bouton à nouveau
+  locked=false
+}
+
+// Fonction appelée lors d'un clic sur un marqueur
+function OnMarkerClick (e) {
+  // On utilise l'objet DOMParser pour transformer la chaine de caractères issue du contenu du popup sur lequel on clique en html, on enregistre le resultat dans la variable coco
+  var xhr = new XMLHttpRequest();
+  let parser = new DOMParser();
+  const coco = parser.parseFromString(e.target.getPopup().getContent(),'text/html')
+
+  // Si on est en mode comparaison
+  if (compare) {
+    // Si le site n'a pas de données, on dit à l'utilisateur de sélectionner un autre site
+    if (coco.getElementById('bouton_graphique').getAttribute('id_data') == 'null') {
+      map.closePopup()
+      window.alert('Ce site n\'a pas de données, veuillez en choisir un autre.')
+    } else {
+      // Si tout va bien et que le site a des données, on ouvre une nouvelle fenêtre avec le même principe que dans la fonction 'Affiche_courbe'
+      xhr.onload = function() {
+        var data = JSON.parse(this.responseText);
+        window.open("courbes.html?id=comp"+"&src="+data.src+'&lieu='+data.lieu)
+      }
+      // On récupère toutes les variables d'intérêt et on les envoie au serveur
+      var id_data1 = coco.getElementById('bouton_graphique').getAttribute('id_data')
+      var id_data2 = poi_compared.get('poi_id')
+      var name1 = poi_compared.get('name')
+      var name2 = coco.getElementById('name').innerHTML.slice(0,-4)
+      xhr.open('GET','/comparaison/'+id_data1+'/'+name1+'/'+id_data2+'/'+name2+'/'+poi_compared.get("dd")+'/'+poi_compared.get("df"),true)
+      xhr.send()
+      // On désactive le 'mode comparaison' en passant compare à false, puis on réinitialise le dictionnaire poi_compared
+      compare = false
+      poi_compared.clear()
+      map.closePopup()
+    }
+  } else {
+  // Si on n'est pas en 'mode comparaison', on affiche tout simplement le contenu du marqueur avec un popup
+  // fonction appelée lorsque la réponse à la requête (description d'un lieu insolite) sera arrivée
+  xhr.onload = function() {
+
+    // transformation des données renvoyées par le serveur
+    // responseText est du type string, data est un objet
+    var data = JSON.parse(this.responseText);
+
+    // affichage dans la zone 'description' du nom (reprise dans le popup)
+    // et de la description récupérée par l'appel au serveur
+    description.innerHTML =  '<b><i>' + coco.getElementById('name').innerHTML + '</i></b><br/>'+ data.desc;
+
+  };
+
+  // Le numéro du lieu est récupéré via la propriété personnalisée du marqueur
+  var idnum = e.target.idnum
+
+  // // Envoi de la requête Ajax pour la récupération de la description du lieu de numéro idnum
+  xhr.open('GET','/description/'+idnum,true);
+  xhr.send();
+  }
+};
+
+</script>

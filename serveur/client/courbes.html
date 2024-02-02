@@ -1,0 +1,21 @@
+<!DOCTYPE html>  
+
+<script src="jquery-3.6.3.min.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css"/>
+
+<title>Courbe</title>
+
+<meta charset="utf-8">
+
+<body>
+	<h1 id='titre'></h1>
+	<div>
+		<img id='courbe' src='' height="500"></img>
+	</div>
+</body>
+
+<script>
+	const urlParams = new URLSearchParams(window.location.search);
+	document.getElementsByTagName('img')[0].setAttribute('src',urlParams.get('src'))
+	document.getElementById('titre').textContent=`${urlParams.get('lieu')}`
+</script>
